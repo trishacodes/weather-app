@@ -48,12 +48,11 @@ async function fetchWeatherData(lat: number, lon: number): Promise<{
   return res.json();
 }
 
-function parseCurrentWeather(data: any, cityName: string, country: string): WeatherData {
+function parseCurrentWeather(data: any, cityName: string, country: string, lat?: number, lon?: number): WeatherData {
   const c = data.current;
   const d = data.daily;
   const { condition, description } = wmoToCondition(c.weather_code);
 
-  // Parse sunrise/sunset as unix timestamps
   const sunriseUnix = Math.floor(new Date(d.sunrise[0]).getTime() / 1000);
   const sunsetUnix = Math.floor(new Date(d.sunset[0]).getTime() / 1000);
   const dtUnix = Math.floor(new Date(c.time).getTime() / 1000);
@@ -61,12 +60,14 @@ function parseCurrentWeather(data: any, cityName: string, country: string): Weat
   return {
     city: cityName,
     country,
+    lat: lat ?? data.latitude,
+    lon: lon ?? data.longitude,
     temp: Math.round(c.temperature_2m),
     feelsLike: Math.round(c.apparent_temperature),
     humidity: Math.round(c.relative_humidity_2m),
     windSpeed: Math.round(c.wind_speed_10m),
     pressure: Math.round(c.surface_pressure),
-    visibility: 10, // Open-Meteo free tier doesn't provide visibility; default 10km
+    visibility: 10,
     condition,
     conditionId: c.weather_code,
     description,
@@ -116,7 +117,7 @@ function parseDailyForecast(data: any): DailyForecast[] {
 export async function fetchCurrentWeather(city: string): Promise<WeatherData> {
   const geo = await geocodeCity(city);
   const data = await fetchWeatherData(geo.lat, geo.lon);
-  return parseCurrentWeather(data, geo.name, geo.country);
+  return parseCurrentWeather(data, geo.name, geo.country, geo.lat, geo.lon);
 }
 
 export async function fetchForecast(city: string): Promise<{ hourly: HourlyForecast[]; daily: DailyForecast[] }> {
@@ -139,7 +140,7 @@ export async function fetchWeatherByCoords(lat: number, lon: number): Promise<We
     // fallback name
   }
   const data = await fetchWeatherData(lat, lon);
-  return parseCurrentWeather(data, cityName, country);
+  return parseCurrentWeather(data, cityName, country, lat, lon);
 }
 
 export async function fetchForecastByCoords(lat: number, lon: number): Promise<{ hourly: HourlyForecast[]; daily: DailyForecast[] }> {
@@ -152,6 +153,8 @@ export async function fetchForecastByCoords(lat: number, lon: number): Promise<{
 export interface WeatherData {
   city: string;
   country: string;
+  lat: number;
+  lon: number;
   temp: number;
   feelsLike: number;
   humidity: number;
