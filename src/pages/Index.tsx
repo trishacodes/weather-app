@@ -7,6 +7,8 @@ import HourlyForecast from "@/components/HourlyForecast";
 import DailyForecast from "@/components/DailyForecast";
 import WeatherSkeleton from "@/components/WeatherSkeleton";
 import FavoriteCities from "@/components/FavoriteCities";
+import WeatherAlerts from "@/components/WeatherAlerts";
+import WeatherMap from "@/components/WeatherMap";
 import {
   fetchCurrentWeather,
   fetchForecast,
@@ -26,6 +28,7 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>("day");
+  
 
   const loadWeather = useCallback(async (city: string) => {
     setLoading(true);
@@ -64,7 +67,7 @@ export default function Index() {
       navigator.geolocation.getCurrentPosition(
         (pos) => loadWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
         () => setError("Could not get your location."),
-        { timeout: 5000 },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
       );
     }
   }, [loadWeatherByCoords]);
@@ -74,12 +77,13 @@ export default function Index() {
       navigator.geolocation.getCurrentPosition(
         (pos) => loadWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
         () => loadWeather("London"),
-        { timeout: 5000 },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
       );
     } else {
       loadWeather("London");
     }
   }, [loadWeather, loadWeatherByCoords]);
+
 
   return (
     <div className="relative min-h-screen">
@@ -107,9 +111,11 @@ export default function Index() {
             ) : weather ? (
               <>
                 <CurrentWeather data={weather} />
+                <WeatherAlerts data={weather} />
                 <WeatherDetails data={weather} />
                 {hourly.length > 0 && <HourlyForecast data={hourly} />}
                 {daily.length > 0 && <DailyForecast data={daily} />}
+                <WeatherMap lat={weather.lat} lon={weather.lon} city={weather.city} />
               </>
             ) : null}
           </div>
