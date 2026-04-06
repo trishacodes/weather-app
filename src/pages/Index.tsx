@@ -38,6 +38,7 @@ export default function Index() {
       setWeather(current);
       setHourly(forecast.hourly);
       setDaily(forecast.daily);
+      setTimeOfDay(getTimeOfDay(current.dt, current.sunrise, current.sunset));
     } catch {
       setError("City not found. Try again.");
     } finally {
