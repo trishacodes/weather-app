@@ -1,8 +1,17 @@
-import { Droplets, Wind, Thermometer } from "lucide-react";
+import { Droplets, Wind, Thermometer, Gauge, Eye, Sunrise, Sunset } from "lucide-react";
 import type { WeatherData } from "@/lib/weather";
 
 interface Props {
   data: WeatherData;
+}
+
+function formatTime(timestamp: number, timezone: number): string {
+  const date = new Date((timestamp + timezone) * 1000);
+  const hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const h = hours % 12 || 12;
+  return `${h}:${minutes.toString().padStart(2, "0")} ${ampm}`;
 }
 
 export default function WeatherDetails({ data }: Props) {
@@ -10,6 +19,10 @@ export default function WeatherDetails({ data }: Props) {
     { icon: Droplets, label: "Humidity", value: `${data.humidity}%` },
     { icon: Wind, label: "Wind", value: `${data.windSpeed} km/h` },
     { icon: Thermometer, label: "Feels Like", value: `${data.feelsLike}°` },
+    { icon: Gauge, label: "Pressure", value: `${data.pressure} hPa` },
+    { icon: Eye, label: "Visibility", value: `${data.visibility} km` },
+    { icon: Sunrise, label: "Sunrise", value: formatTime(data.sunrise, data.timezone) },
+    { icon: Sunset, label: "Sunset", value: formatTime(data.sunset, data.timezone) },
   ];
 
   return (
