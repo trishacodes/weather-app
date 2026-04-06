@@ -30,10 +30,7 @@ export default function Index() {
     setLoading(true);
     setError("");
     try {
-      const [current, forecast] = await Promise.all([
-        fetchCurrentWeather(city),
-        fetchForecast(city),
-      ]);
+      const [current, forecast] = await Promise.all([fetchCurrentWeather(city), fetchForecast(city)]);
       setWeather(current);
       setHourly(forecast.hourly);
       setDaily(forecast.daily);
@@ -49,10 +46,7 @@ export default function Index() {
     setLoading(true);
     setError("");
     try {
-      const [current, forecast] = await Promise.all([
-        fetchWeatherByCoords(lat, lon),
-        fetchForecastByCoords(lat, lon),
-      ]);
+      const [current, forecast] = await Promise.all([fetchWeatherByCoords(lat, lon), fetchForecastByCoords(lat, lon)]);
       setWeather(current);
       setHourly(forecast.hourly);
       setDaily(forecast.daily);
@@ -69,7 +63,7 @@ export default function Index() {
       navigator.geolocation.getCurrentPosition(
         (pos) => loadWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
         () => loadWeather("London"),
-        { timeout: 5000 }
+        { timeout: 5000 },
       );
     } else {
       loadWeather("London");
@@ -78,10 +72,7 @@ export default function Index() {
 
   return (
     <div className="relative min-h-screen">
-      <WeatherBackground
-        condition={weather?.condition || "Clear"}
-        timeOfDay={timeOfDay}
-      />
+      <WeatherBackground condition={weather?.condition || "Clear"} timeOfDay={timeOfDay} />
 
       <div className="relative z-10 min-h-screen flex flex-col">
         <div className="flex-1 overflow-y-auto scrollbar-hide">
