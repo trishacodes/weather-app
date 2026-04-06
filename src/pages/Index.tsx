@@ -6,6 +6,7 @@ import WeatherDetails from "@/components/WeatherDetails";
 import HourlyForecast from "@/components/HourlyForecast";
 import DailyForecast from "@/components/DailyForecast";
 import WeatherSkeleton from "@/components/WeatherSkeleton";
+import FavoriteCities from "@/components/FavoriteCities";
 import {
   fetchCurrentWeather,
   fetchForecast,
@@ -90,6 +91,10 @@ export default function Index() {
             <div className="animate-float-up">
               <SearchBar onSearch={loadWeather} onLocate={handleLocate} isLoading={loading} />
             </div>
+
+            {!loading && weather && (
+              <FavoriteCities currentCity={weather.city} onSelectCity={loadWeather} />
+            )}
 
             {error && (
               <div className="glass-card p-4 text-center animate-float-up">
