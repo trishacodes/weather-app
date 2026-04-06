@@ -45,9 +45,36 @@ export default function Index() {
     }
   }, []);
 
+  const loadWeatherByCoords = useCallback(async (lat: number, lon: number) => {
+    setLoading(true);
+    setError("");
+    try {
+      const [current, forecast] = await Promise.all([
+        fetchWeatherByCoords(lat, lon),
+        fetchForecastByCoords(lat, lon),
+      ]);
+      setWeather(current);
+      setHourly(forecast.hourly);
+      setDaily(forecast.daily);
+      setTimeOfDay(getTimeOfDay(current.dt, current.sunrise, current.sunset));
+    } catch {
+      setError("Could not fetch weather for your location.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    loadWeather("London");
-  }, [loadWeather]);
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => loadWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
+        () => loadWeather("London"),
+        { timeout: 5000 }
+      );
+    } else {
+      loadWeather("London");
+    }
+  }, [loadWeather, loadWeatherByCoords]);
 
   return (
     <div className="relative min-h-screen">
