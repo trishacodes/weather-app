@@ -28,7 +28,7 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>("day");
-  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  
 
   const loadWeather = useCallback(async (city: string) => {
     setLoading(true);
@@ -38,9 +38,6 @@ export default function Index() {
       setWeather(current);
       setHourly(forecast.hourly);
       setDaily(forecast.daily);
-      setTimeOfDay(getTimeOfDay(current.dt, current.sunrise, current.sunset));
-      // Store coords from geocoded city for map
-      setCoords(null); // Will use city-level coords from weather data
     } catch {
       setError("City not found. Try again.");
     } finally {
@@ -57,7 +54,6 @@ export default function Index() {
       setHourly(forecast.hourly);
       setDaily(forecast.daily);
       setTimeOfDay(getTimeOfDay(current.dt, current.sunrise, current.sunset));
-      setCoords({ lat, lon });
     } catch {
       setError("Could not fetch weather for your location.");
     } finally {
@@ -87,10 +83,6 @@ export default function Index() {
     }
   }, [loadWeather, loadWeatherByCoords]);
 
-  // Derive map coordinates from coords or approximate from weather timezone
-  const mapLat = coords?.lat ?? 0;
-  const mapLon = coords?.lon ?? 0;
-  const showMap = coords !== null;
 
   return (
     <div className="relative min-h-screen">
@@ -122,7 +114,7 @@ export default function Index() {
                 <WeatherDetails data={weather} />
                 {hourly.length > 0 && <HourlyForecast data={hourly} />}
                 {daily.length > 0 && <DailyForecast data={daily} />}
-                {showMap && <WeatherMap lat={mapLat} lon={mapLon} city={weather.city} />}
+                <WeatherMap lat={weather.lat} lon={weather.lon} city={weather.city} />
               </>
             ) : null}
           </div>
