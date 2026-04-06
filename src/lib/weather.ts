@@ -7,22 +7,7 @@ export async function fetchWeatherByCoords(lat: number, lon: number): Promise<We
   );
   if (!res.ok) throw new Error("Location not found");
   const data = await res.json();
-  return {
-    city: data.name,
-    country: data.sys.country,
-    temp: Math.round(data.main.temp),
-    feelsLike: Math.round(data.main.feels_like),
-    humidity: data.main.humidity,
-    windSpeed: Math.round(data.wind.speed * 3.6),
-    condition: data.weather[0].main,
-    conditionId: data.weather[0].id,
-    description: data.weather[0].description,
-    icon: data.weather[0].icon,
-    sunrise: data.sys.sunrise,
-    sunset: data.sys.sunset,
-    dt: data.dt,
-    timezone: data.timezone,
-  };
+  return parseWeatherResponse(data);
 }
 
 export async function fetchForecastByCoords(lat: number, lon: number): Promise<{
@@ -77,6 +62,8 @@ export interface WeatherData {
   feelsLike: number;
   humidity: number;
   windSpeed: number;
+  pressure: number;
+  visibility: number;
   condition: string;
   conditionId: number;
   description: string;
@@ -108,22 +95,7 @@ export async function fetchCurrentWeather(city: string): Promise<WeatherData> {
   );
   if (!res.ok) throw new Error("City not found");
   const data = await res.json();
-  return {
-    city: data.name,
-    country: data.sys.country,
-    temp: Math.round(data.main.temp),
-    feelsLike: Math.round(data.main.feels_like),
-    humidity: data.main.humidity,
-    windSpeed: Math.round(data.wind.speed * 3.6),
-    condition: data.weather[0].main,
-    conditionId: data.weather[0].id,
-    description: data.weather[0].description,
-    icon: data.weather[0].icon,
-    sunrise: data.sys.sunrise,
-    sunset: data.sys.sunset,
-    dt: data.dt,
-    timezone: data.timezone,
-  };
+  return parseWeatherResponse(data);
 }
 
 export async function fetchForecast(city: string): Promise<{
