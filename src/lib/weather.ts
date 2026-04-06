@@ -126,16 +126,17 @@ export async function fetchForecast(city: string): Promise<{ hourly: HourlyForec
 }
 
 export async function fetchWeatherByCoords(lat: number, lon: number): Promise<WeatherData> {
-  // Reverse geocode to get city name
-  const res = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=en`);
   let cityName = "Your Location";
   let country = "";
-  if (res.ok) {
-    const geo = await res.json();
-    if (geo.results?.[0]) {
-      cityName = geo.results[0].name;
-      country = geo.results[0].country_code || "";
+  try {
+    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+    if (res.ok) {
+      const geo = await res.json();
+      cityName = geo.city || geo.locality || "Your Location";
+      country = geo.countryCode || "";
     }
+  } catch {
+    // fallback name
   }
   const data = await fetchWeatherData(lat, lon);
   return parseCurrentWeather(data, cityName, country);
