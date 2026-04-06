@@ -1,80 +1,152 @@
-const API_KEY = "111e65a32f7b7344b3e4191d818dea12";
-const BASE_URL = "https://api.openweathermap.org/data/2.5";
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
 
-export async function fetchWeatherByCoords(lat: number, lon: number): Promise<WeatherData> {
-  const res = await fetch(
-    `${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`
-  );
-  if (!res.ok) throw new Error("Location not found");
-  const data = await res.json();
-  return parseWeatherResponse(data);
+// WMO Weather interpretation codes → condition string
+function wmoToCondition(code: number): { condition: string; description: string } {
+  if (code === 0) return { condition: "Clear", description: "clear sky" };
+  if (code === 1) return { condition: "Clear", description: "mainly clear" };
+  if (code === 2) return { condition: "Clouds", description: "partly cloudy" };
+  if (code === 3) return { condition: "Clouds", description: "overcast" };
+  if (code === 45 || code === 48) return { condition: "Fog", description: "fog" };
+  if (code >= 51 && code <= 55) return { condition: "Drizzle", description: "drizzle" };
+  if (code >= 56 && code <= 57) return { condition: "Drizzle", description: "freezing drizzle" };
+  if (code >= 61 && code <= 65) return { condition: "Rain", description: "rain" };
+  if (code >= 66 && code <= 67) return { condition: "Rain", description: "freezing rain" };
+  if (code >= 71 && code <= 77) return { condition: "Snow", description: "snowfall" };
+  if (code >= 80 && code <= 82) return { condition: "Rain", description: "rain showers" };
+  if (code >= 85 && code <= 86) return { condition: "Snow", description: "snow showers" };
+  if (code >= 95 && code <= 99) return { condition: "Thunderstorm", description: "thunderstorm" };
+  return { condition: "Clear", description: "unknown" };
 }
 
-export async function fetchForecastByCoords(lat: number, lon: number): Promise<{
-  hourly: HourlyForecast[];
-  daily: DailyForecast[];
+async function geocodeCity(city: string): Promise<{ lat: number; lon: number; name: string; country: string }> {
+  const res = await fetch(`${GEOCODING_URL}?name=${encodeURIComponent(city)}&count=1&language=en`);
+  if (!res.ok) throw new Error("Geocoding failed");
+  const data = await res.json();
+  if (!data.results || data.results.length === 0) throw new Error("City not found");
+  const r = data.results[0];
+  return { lat: r.latitude, lon: r.longitude, name: r.name, country: r.country_code || "" };
+}
+
+async function fetchWeatherData(lat: number, lon: number): Promise<{
+  current: any;
+  hourly: any;
+  daily: any;
+  utc_offset_seconds: number;
 }> {
-  const res = await fetch(
-    `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`
-  );
-  if (!res.ok) throw new Error("Forecast not found");
-  const data = await res.json();
-  return parseForecastData(data);
+  const params = new URLSearchParams({
+    latitude: lat.toString(),
+    longitude: lon.toString(),
+    current: "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,surface_pressure,is_day",
+    hourly: "temperature_2m,weather_code",
+    daily: "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset",
+    timezone: "auto",
+    forecast_days: "7",
+  });
+  const res = await fetch(`${FORECAST_URL}?${params}`);
+  if (!res.ok) throw new Error("Weather fetch failed");
+  return res.json();
 }
 
-function parseWeatherResponse(data: any): WeatherData {
+function parseCurrentWeather(data: any, cityName: string, country: string): WeatherData {
+  const c = data.current;
+  const d = data.daily;
+  const { condition, description } = wmoToCondition(c.weather_code);
+
+  // Parse sunrise/sunset as unix timestamps
+  const sunriseUnix = Math.floor(new Date(d.sunrise[0]).getTime() / 1000);
+  const sunsetUnix = Math.floor(new Date(d.sunset[0]).getTime() / 1000);
+  const dtUnix = Math.floor(new Date(c.time).getTime() / 1000);
+
   return {
-    city: data.name,
-    country: data.sys.country,
-    temp: Math.round(data.main.temp),
-    feelsLike: Math.round(data.main.feels_like),
-    humidity: data.main.humidity,
-    windSpeed: Math.round(data.wind.speed * 3.6),
-    pressure: data.main.pressure,
-    visibility: Math.round((data.visibility || 0) / 1000),
-    condition: data.weather[0].main,
-    conditionId: data.weather[0].id,
-    description: data.weather[0].description,
-    icon: data.weather[0].icon,
-    sunrise: data.sys.sunrise,
-    sunset: data.sys.sunset,
-    dt: data.dt,
-    timezone: data.timezone,
+    city: cityName,
+    country,
+    temp: Math.round(c.temperature_2m),
+    feelsLike: Math.round(c.apparent_temperature),
+    humidity: Math.round(c.relative_humidity_2m),
+    windSpeed: Math.round(c.wind_speed_10m),
+    pressure: Math.round(c.surface_pressure),
+    visibility: 10, // Open-Meteo free tier doesn't provide visibility; default 10km
+    condition,
+    conditionId: c.weather_code,
+    description,
+    icon: c.is_day ? "d" : "n",
+    sunrise: sunriseUnix,
+    sunset: sunsetUnix,
+    dt: dtUnix,
+    timezone: data.utc_offset_seconds,
   };
 }
 
-function parseForecastData(data: any): { hourly: HourlyForecast[]; daily: DailyForecast[] } {
-  const hourly: HourlyForecast[] = data.list.slice(0, 12).map((item: any) => ({
-    time: item.dt,
-    temp: Math.round(item.main.temp),
-    icon: item.weather[0].icon,
-    condition: item.weather[0].main,
-  }));
+function parseHourlyForecast(data: any): HourlyForecast[] {
+  const h = data.hourly;
+  const now = new Date();
+  const items: HourlyForecast[] = [];
 
-  const dailyMap = new Map<string, { temps: number[]; icons: string[]; conditions: string[]; date: number }>();
-  data.list.forEach((item: any) => {
-    const date = new Date(item.dt * 1000).toDateString();
-    if (!dailyMap.has(date)) {
-      dailyMap.set(date, { temps: [], icons: [], conditions: [], date: item.dt });
-    }
-    const entry = dailyMap.get(date)!;
-    entry.temps.push(item.main.temp);
-    entry.icons.push(item.weather[0].icon);
-    entry.conditions.push(item.weather[0].main);
-  });
-
-  const daily: DailyForecast[] = Array.from(dailyMap.values())
-    .slice(0, 7)
-    .map((entry) => ({
-      date: entry.date,
-      tempMin: Math.round(Math.min(...entry.temps)),
-      tempMax: Math.round(Math.max(...entry.temps)),
-      icon: entry.icons[Math.floor(entry.icons.length / 2)],
-      condition: entry.conditions[Math.floor(entry.conditions.length / 2)],
-    }));
-
-  return { hourly, daily };
+  for (let i = 0; i < h.time.length && items.length < 12; i++) {
+    const t = new Date(h.time[i]);
+    if (t < now) continue;
+    const { condition } = wmoToCondition(h.weather_code[i]);
+    items.push({
+      time: Math.floor(t.getTime() / 1000),
+      temp: Math.round(h.temperature_2m[i]),
+      icon: "",
+      condition,
+    });
+  }
+  return items;
 }
+
+function parseDailyForecast(data: any): DailyForecast[] {
+  const d = data.daily;
+  return d.time.slice(0, 7).map((t: string, i: number) => {
+    const { condition } = wmoToCondition(d.weather_code[i]);
+    return {
+      date: Math.floor(new Date(t).getTime() / 1000),
+      tempMin: Math.round(d.temperature_2m_min[i]),
+      tempMax: Math.round(d.temperature_2m_max[i]),
+      icon: "",
+      condition,
+    };
+  });
+}
+
+// --- Public API (same interface as before) ---
+
+export async function fetchCurrentWeather(city: string): Promise<WeatherData> {
+  const geo = await geocodeCity(city);
+  const data = await fetchWeatherData(geo.lat, geo.lon);
+  return parseCurrentWeather(data, geo.name, geo.country);
+}
+
+export async function fetchForecast(city: string): Promise<{ hourly: HourlyForecast[]; daily: DailyForecast[] }> {
+  const geo = await geocodeCity(city);
+  const data = await fetchWeatherData(geo.lat, geo.lon);
+  return { hourly: parseHourlyForecast(data), daily: parseDailyForecast(data) };
+}
+
+export async function fetchWeatherByCoords(lat: number, lon: number): Promise<WeatherData> {
+  // Reverse geocode to get city name
+  const res = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=en`);
+  let cityName = "Your Location";
+  let country = "";
+  if (res.ok) {
+    const geo = await res.json();
+    if (geo.results?.[0]) {
+      cityName = geo.results[0].name;
+      country = geo.results[0].country_code || "";
+    }
+  }
+  const data = await fetchWeatherData(lat, lon);
+  return parseCurrentWeather(data, cityName, country);
+}
+
+export async function fetchForecastByCoords(lat: number, lon: number): Promise<{ hourly: HourlyForecast[]; daily: DailyForecast[] }> {
+  const data = await fetchWeatherData(lat, lon);
+  return { hourly: parseHourlyForecast(data), daily: parseDailyForecast(data) };
+}
+
+// --- Types ---
 
 export interface WeatherData {
   city: string;
@@ -108,27 +180,6 @@ export interface DailyForecast {
   tempMax: number;
   icon: string;
   condition: string;
-}
-
-export async function fetchCurrentWeather(city: string): Promise<WeatherData> {
-  const res = await fetch(
-    `${BASE_URL}/weather?q=${encodeURIComponent(city)}&units=metric&appid=${API_KEY}`
-  );
-  if (!res.ok) throw new Error("City not found");
-  const data = await res.json();
-  return parseWeatherResponse(data);
-}
-
-export async function fetchForecast(city: string): Promise<{
-  hourly: HourlyForecast[];
-  daily: DailyForecast[];
-}> {
-  const res = await fetch(
-    `${BASE_URL}/forecast?q=${encodeURIComponent(city)}&units=metric&appid=${API_KEY}`
-  );
-  if (!res.ok) throw new Error("Forecast not found");
-  const data = await res.json();
-  return parseForecastData(data);
 }
 
 export function getWeatherEmoji(condition: string): string {
