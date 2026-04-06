@@ -22,6 +22,27 @@ export async function fetchForecastByCoords(lat: number, lon: number): Promise<{
   return parseForecastData(data);
 }
 
+function parseWeatherResponse(data: any): WeatherData {
+  return {
+    city: data.name,
+    country: data.sys.country,
+    temp: Math.round(data.main.temp),
+    feelsLike: Math.round(data.main.feels_like),
+    humidity: data.main.humidity,
+    windSpeed: Math.round(data.wind.speed * 3.6),
+    pressure: data.main.pressure,
+    visibility: Math.round((data.visibility || 0) / 1000),
+    condition: data.weather[0].main,
+    conditionId: data.weather[0].id,
+    description: data.weather[0].description,
+    icon: data.weather[0].icon,
+    sunrise: data.sys.sunrise,
+    sunset: data.sys.sunset,
+    dt: data.dt,
+    timezone: data.timezone,
+  };
+}
+
 function parseForecastData(data: any): { hourly: HourlyForecast[]; daily: DailyForecast[] } {
   const hourly: HourlyForecast[] = data.list.slice(0, 12).map((item: any) => ({
     time: item.dt,
