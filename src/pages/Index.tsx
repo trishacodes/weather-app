@@ -9,6 +9,8 @@ import WeatherSkeleton from "@/components/WeatherSkeleton";
 import {
   fetchCurrentWeather,
   fetchForecast,
+  fetchWeatherByCoords,
+  fetchForecastByCoords,
   getTimeOfDay,
   type WeatherData,
   type HourlyForecast as HF,

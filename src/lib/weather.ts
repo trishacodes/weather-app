@@ -135,37 +135,7 @@ export async function fetchForecast(city: string): Promise<{
   );
   if (!res.ok) throw new Error("Forecast not found");
   const data = await res.json();
-
-  const hourly: HourlyForecast[] = data.list.slice(0, 12).map((item: any) => ({
-    time: item.dt,
-    temp: Math.round(item.main.temp),
-    icon: item.weather[0].icon,
-    condition: item.weather[0].main,
-  }));
-
-  const dailyMap = new Map<string, { temps: number[]; icons: string[]; conditions: string[]; date: number }>();
-  data.list.forEach((item: any) => {
-    const date = new Date(item.dt * 1000).toDateString();
-    if (!dailyMap.has(date)) {
-      dailyMap.set(date, { temps: [], icons: [], conditions: [], date: item.dt });
-    }
-    const entry = dailyMap.get(date)!;
-    entry.temps.push(item.main.temp);
-    entry.icons.push(item.weather[0].icon);
-    entry.conditions.push(item.weather[0].main);
-  });
-
-  const daily: DailyForecast[] = Array.from(dailyMap.values())
-    .slice(0, 7)
-    .map((entry) => ({
-      date: entry.date,
-      tempMin: Math.round(Math.min(...entry.temps)),
-      tempMax: Math.round(Math.max(...entry.temps)),
-      icon: entry.icons[Math.floor(entry.icons.length / 2)],
-      condition: entry.conditions[Math.floor(entry.conditions.length / 2)],
-    }));
-
-  return { hourly, daily };
+  return parseForecastData(data);
 }
 
 export function getWeatherEmoji(condition: string): string {
