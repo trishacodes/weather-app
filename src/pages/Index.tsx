@@ -7,6 +7,8 @@ import HourlyForecast from "@/components/HourlyForecast";
 import DailyForecast from "@/components/DailyForecast";
 import WeatherSkeleton from "@/components/WeatherSkeleton";
 import FavoriteCities from "@/components/FavoriteCities";
+import WeatherAlerts from "@/components/WeatherAlerts";
+import WeatherMap from "@/components/WeatherMap";
 import {
   fetchCurrentWeather,
   fetchForecast,
@@ -26,6 +28,7 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>("day");
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
 
   const loadWeather = useCallback(async (city: string) => {
     setLoading(true);
@@ -36,6 +39,8 @@ export default function Index() {
       setHourly(forecast.hourly);
       setDaily(forecast.daily);
       setTimeOfDay(getTimeOfDay(current.dt, current.sunrise, current.sunset));
+      // Store coords from geocoded city for map
+      setCoords(null); // Will use city-level coords from weather data
     } catch {
       setError("City not found. Try again.");
     } finally {
@@ -52,6 +57,7 @@ export default function Index() {
       setHourly(forecast.hourly);
       setDaily(forecast.daily);
       setTimeOfDay(getTimeOfDay(current.dt, current.sunrise, current.sunset));
+      setCoords({ lat, lon });
     } catch {
       setError("Could not fetch weather for your location.");
     } finally {
@@ -64,7 +70,7 @@ export default function Index() {
       navigator.geolocation.getCurrentPosition(
         (pos) => loadWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
         () => setError("Could not get your location."),
-        { timeout: 5000 },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
       );
     }
   }, [loadWeatherByCoords]);
@@ -74,12 +80,17 @@ export default function Index() {
       navigator.geolocation.getCurrentPosition(
         (pos) => loadWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
         () => loadWeather("London"),
-        { timeout: 5000 },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
       );
     } else {
       loadWeather("London");
     }
   }, [loadWeather, loadWeatherByCoords]);
+
+  // Derive map coordinates from coords or approximate from weather timezone
+  const mapLat = coords?.lat ?? 0;
+  const mapLon = coords?.lon ?? 0;
+  const showMap = coords !== null;
 
   return (
     <div className="relative min-h-screen">
@@ -107,9 +118,11 @@ export default function Index() {
             ) : weather ? (
               <>
                 <CurrentWeather data={weather} />
+                <WeatherAlerts data={weather} />
                 <WeatherDetails data={weather} />
                 {hourly.length > 0 && <HourlyForecast data={hourly} />}
                 {daily.length > 0 && <DailyForecast data={daily} />}
+                {showMap && <WeatherMap lat={mapLat} lon={mapLon} city={weather.city} />}
               </>
             ) : null}
           </div>
