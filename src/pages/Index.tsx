@@ -58,6 +58,16 @@ export default function Index() {
     }
   }, []);
 
+  const handleLocate = useCallback(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => loadWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
+        () => setError("Could not get your location."),
+        { timeout: 5000 },
+      );
+    }
+  }, [loadWeatherByCoords]);
+
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -78,7 +88,7 @@ export default function Index() {
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           <div className="max-w-md mx-auto px-5 py-8 space-y-6 pb-12">
             <div className="animate-float-up">
-              <SearchBar onSearch={loadWeather} isLoading={loading} />
+              <SearchBar onSearch={loadWeather} onLocate={handleLocate} isLoading={loading} />
             </div>
 
             {error && (
